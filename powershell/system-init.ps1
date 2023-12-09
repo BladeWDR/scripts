@@ -53,7 +53,8 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 
 # Install programs via choco
 
-choco install 7zip adobereader google-chrome-x64 firefox vscode powershell-core docker-desktop
+#choco install 7zip adobereader google-chrome-x64 firefox vscode powershell-core docker-desktop git neovim mingw gcc make
+choco install neovim mingw gcc make
 
 # Install VS Code extensions
 
