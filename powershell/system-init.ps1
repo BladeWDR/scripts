@@ -1,5 +1,4 @@
 $neovimConfigDir = "C:\Users\$env:USERPROFILE\nvim\"
-$patternToSkip = ".git*"
 
 
 function Install-WinUtilChoco {
