@@ -6,7 +6,7 @@
 .PARAMETER State
     [String] true enables, false disables. Default is false.
 .PARAMETER UserPrincipalName 
-    [String] Users name in the format username@example.com
+    [String] Users names in the format username@example.com,seconduser@example.com
 .EXAMPLE
     Enable-Disable-MFA.ps1 -State true -UserPrincipalName user@example.com
 .NOTES
@@ -16,19 +16,26 @@
 #>
 
 param (
-    [string]$State=false,
-    [string]$UserPrincipalName
+    [string]$State='false',
+    [string[]]$UserPrincipalName
       )
 
 function Change-MFA-State {
 
+
+    write-host "the value of `$input is: `$$State" 
+
     if($State -eq $false){
 
-        Get-MsolUser -UserPrincipalName $UserPrincipalName | Set-MsolUser -StrongAuthenticationRequirements @()
+        foreach ($user in $UserPrincipalName) {
+        
+        Get-MsolUser -UserPrincipalName $User | Set-MsolUser -StrongAuthenticationRequirements @()
+    }
 
     }
     elseif($State -eq $true){
 
+        foreach ($user in $UserPrincipalName) {
         # Create the StrongAuthenticationRequirement Object
         $sa = New-Object -TypeName Microsoft.Online.Administration.StrongAuthenticationRequirement
         $sa.RelyingParty = "*"
@@ -36,7 +43,8 @@ function Change-MFA-State {
         $sar = @($sa)
         
         # Enable MFA for the user
-        Set-MsolUser -UserPrincipalName $UserPrincipalName -StrongAuthenticationRequirements $sar        
+        Set-MsolUser -UserPrincipalName $User -StrongAuthenticationRequirements $sar        
+        }
 
     }
     else {
@@ -61,10 +69,9 @@ catch {
     clear-host
 }
 
-#set variables
-# $UserPrincipalName = Read-Host -Prompt 'Please enter the user to change the MFA status for in the format user@example.com: ' 
-# $input= Read-Host -Prompt "Enter true or false depending on what operation you wish to perform (true=enable, false=disable [default: disable]): "
-$State= [System.Convert]::ToBoolean($input)
+Connect-MsolService
+
+[System.Convert]::ToBoolean($State)
 
 #call the function
 Change-MFA-State
