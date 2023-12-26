@@ -26,7 +26,18 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 
 # Install programs via choco
 
-choco install 7zip adobereader google-chrome-x64 firefox
+choco install 7zip adobereader google-chrome-x64 firefox nerd-fonts-CascadiaCode
+
+# Set the windows terminal default font to the nerd font we downloaded.
+$JsonPath = $env:localappdata\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json
+#First copy the settings.json file in case we make an ooopsie.
+Copy-Item -Path $JsonPath -Destination "$JsonPath.bak"
+$JsonFile = $a = Get-Content .\settings.json -raw | ConvertFrom-Json
+$JsonFile.profiles.defaults.font.face = "CaskaydiaCove Nerd Font"
+$JsonFile | ConvertTo-Json -depth 32 | Set-Content -Path .\settings.json
+
+
+
 #choco install git neovim mingw make
 
 #reload env yet AGAIN so i can use git.
