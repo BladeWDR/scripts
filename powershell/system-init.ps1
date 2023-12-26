@@ -29,12 +29,12 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 choco install 7zip adobereader google-chrome-x64 firefox nerd-fonts-CascadiaCode
 
 # Set the windows terminal default font to the nerd font we downloaded.
-$JsonPath = $env:localappdata\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json
+$JsonPath = "$env:localappdata\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
 #First copy the settings.json file in case we make an ooopsie.
 Copy-Item -Path $JsonPath -Destination "$JsonPath.bak"
-$JsonFile = $a = Get-Content .\settings.json -raw | ConvertFrom-Json
+$JsonFile = Get-Content $JsonPath -raw | ConvertFrom-Json
 $JsonFile.profiles.defaults.font.face = "CaskaydiaCove Nerd Font"
-$JsonFile | ConvertTo-Json -depth 32 | Set-Content -Path .\settings.json
+$JsonFile | ConvertTo-Json -depth 32 | Set-Content -Path $JsonPath
 
 
 
