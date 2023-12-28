@@ -1,13 +1,6 @@
 #!/usr/bin/env php
 <?php
 
-/* Process: query https://wiki-url/api/pages and get a list of all pages in the bookstack instance.
-* iterate through the json data returned and use it to first build the folder structure, then build a url for each page.
-* Use that url to export each page as markdown.
-* example: https://demo.bookstackapp.com/api/pages/{id}/export/markdown 
-*/ 
-
-//vars
 // API Credentials
 // You can either provide them as environment variables
 // or hard-code them in the empty strings below.
@@ -36,6 +29,7 @@ $extension = $extensionByFormat[$exportFormat] ?? $exportFormat;
 
 exportPages($outDir,$extension); //$pages is the list of all pages in a json format.
 
+//return the page list so we can get the page details.
 function listAllPages(): array {
     global $apiUrl, $clientId, $clientSecret;
     //build the API url for the GET request.
@@ -66,12 +60,9 @@ function listAllPages(): array {
 
 
 }
-//end of function
-//
-//notes: the array items will always be 16 elements long, and their positions will not change.
-//Instead of iterating over the array to parse it, set the variables to the specific elements I need.
-//
-//
+
+//Export the pages to a file.
+//use the array built by listAllPages() to build the folder structure.
 function exportPages($outDir,$extension) {
 
    $pagesList = listAllPages();
