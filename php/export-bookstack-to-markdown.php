@@ -20,7 +20,7 @@ $clientSecret = getenv('BS_TOKEN_SECRET') ?: '';
 // or be hard-coded as strings below.
 $exportFormat = $argv[1] ?? 'markdown';
 // $exportLocation = $argv[2] ?? './';
-$exportLocation = $argv[2] ?? '/home/scott/test';
+$exportLocation = $argv[2] ?? './';
 
 $outDir = realpath($exportLocation);
 
@@ -123,6 +123,3 @@ function pageToFile($id) {
     return file_get_contents($url, false, $context);
 
 }
-
-
-
