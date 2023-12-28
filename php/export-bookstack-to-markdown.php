@@ -12,8 +12,8 @@
 // You can either provide them as environment variables
 // or hard-code them in the empty strings below.
 $apiUrl = getenv('BS_URL') ?: 'https://wiki.lan.bladewdr.xyz'; // http://bookstack.local/
-$clientId = getenv('BS_TOKEN_ID') ?: 'SdSzww12Gf0F1Sy5ogIjeir6i3qEzuBf';
-$clientSecret = getenv('BS_TOKEN_SECRET') ?: 'jKthboSLe53oXjNUEPJGyv4RNIdFsUzC';
+$clientId = getenv('BS_TOKEN_ID') ?: '';
+$clientSecret = getenv('BS_TOKEN_SECRET') ?: '';
 
 // Export Format & Location
 // Can be provided as a arguments when calling the script
