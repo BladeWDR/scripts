@@ -1,22 +1,6 @@
 #This is a script I use in my MDT deployments as a part of a task sequence.
 #function to set the power plan in Windows to high performance.
 
-# function powerPlanConfiguration {
-#
-#     #first we need to grab the GUID of the high performance plan since it may vary across systems.
-#     $powerPlans = powercfg /list
-#     $highPerformancePlan = $powerPlans | Select-String "High Performance"
-#
-#     if ($highPerformancePlan) {
-#     $guid = ($highPerformancePlan -split ' ')[3].Trim()
-#     Write-Output "GUID of High Performance Plan: $guid"
-#     Write-Output "Setting power plan to high performance."
-#     powercfg -setactive $guid
-# }   else {
-#     Write-Output "High Performance Plan not found on this computer."
-# }
-# }
-
 #checks to see if the device is a laptop and returns true if so.
 function Detect-Laptop
 {
@@ -50,27 +34,31 @@ function Create-PowerPlan {
     $PowerButtonGUID = '7648efa3-dd9c-4e3e-b566-50f929386280'
     $LidClosedGUID = '5ca83367-6e45-459f-a27b-476b1d01c936'
     $SleepGUID = '238c9fa8-0aad-41ed-83f4-97be242c8f20'
+    $PCIGUID = '501a4d13-42af-4429-9fd1-a8218c268e20'
+    $LinkStateGUID = 'ee12f906-d277-404b-b6da-e5fa1a576df5'
 
-    if ($null -eq $mdtScheme){
+    if ($mdtScheme -eq $null){
 
-        Write-Output "Power scheme '$mdtScheme' not found. Adding..."
+        Write-Output "Power scheme '$powerSchemeName' not found. Adding...`n"
+        $duplicate = cmd /c "powercfg /duplicatescheme $activeScheme"
+        powercfg -setactive $duplicate.split()[3]
+    	powercfg -changename ($duplicate).split()[3] $powerSchemeName
+        $MDTPlanGUID = $(powercfg -getactivescheme).split()[3]
 
-        powercfg /duplicatescheme $activeScheme
-        powercfg -setactive ($powerSchemeName).split[3]
         #Set the power button to shut down the machine when pressed.
-        powercfg /setdcvalueindex $powerSchemeName $PowerGUID $PowerButtonGUID 3
-        powercfg /setacvalueindex $powerSchemeName $PowerGUID $PowerButtonGUID 3
-        #Set the computer to never sleep automatically.
-        powercfg -change -standby-timeout-dc 0
-        #Set the computer screen timeout.
-        powercfg -change -monitor-timeout-ac 0
+        powercfg /setdcvalueindex $MDTPlanGUID $PowerGUID $PowerButtonGUID 3
+        powercfg /setacvalueindex $MDTPlanGUID $PowerGUID $PowerButtonGUID 3
         # add a conditional here to set the lid close action if the device is a laptop. 
         if ( Detect-Laptop ){
-
-            powercfg /setdcvalueindex $powerSchemeName $PowerGUID $LidClosedGUID 15
-            powercfg /setacvalueindex $powerSchemeName $PowerGUID $LidClosedGUID 0
-
+            powercfg /setdcvalueindex $MDTPlanGUID $PowerGUID $LidClosedGUID 15
+            powercfg /setacvalueindex $MDTPlanGUID $PowerGUID $LidClosedGUID 0
         }
+        #Set the Link State power management to none.
+        powercfg /setacvalueindex $MDTPlanGUID $PCIGUID $LinkStateGUID 0
+        #Set the computer to never sleep automatically while on AC power.
+        powercfg -change -standby-timeout-ac 0
+        #Set the computer screen timeout.
+        powercfg -change -monitor-timeout-ac 30
 
     }
     else {
@@ -87,3 +75,4 @@ try {
 catch{
         Write-Warning $psitem.Exception.Message
     }
+
