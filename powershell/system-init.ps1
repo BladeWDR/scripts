@@ -7,6 +7,7 @@ function Install-Apps {
 # Install programs via choco
     choco install 7zip adobereader firefox nerd-fonts-CascadiaCode winget
 # Use winget to install Chrome since the choco version is constantly broken.
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
     winget install google.chrome --accept-package-agreements --accept-source-agreements
 }
 
