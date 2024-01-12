@@ -1,21 +1,27 @@
-$neovimConfigDir = "C:\Users\$env:USERPROFILE\nvim\"
-
-
 function Install-WinUtilChoco {
-
         Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) -ErrorAction Stop
         powershell choco feature enable -n allowGlobalConfirmation
-
 }
 
-function Install-NvimConfig {
-    
-    Write-Host "Cloning init.lua repository..."
+function Install-Apps {
+# Install programs via choco
+    choco install 7zip adobereader firefox nerd-fonts-CascadiaCode winget
+# Use winget to install Chrome since the choco version is constantly broken.
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
+    winget install google.chrome --accept-package-agreements --accept-source-agreements
+}
 
-    git clone https://github.com/BladeWDR/init.lua.git $neovimConfigDir
-
-
-
+function Edit-Terminal {
+# Set the windows terminal default font to the nerd font we downloaded.
+    $JsonPath = "$env:localappdata\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+# Check to see if the settings.json file exists.
+        if (Test-Path $JsonPath){
+#First copy the settings.json file in case we make an ooopsie.
+            Copy-Item -Path $JsonPath -Destination "$JsonPath.bak"
+            $JsonFile = Get-Content $JsonPath -raw | ConvertFrom-Json
+            $JsonFile.profiles.defaults.font.face = "CaskaydiaCove Nerd Font"
+            $JsonFile | ConvertTo-Json -depth 32 | Set-Content -Path $JsonPath
+        }
 }
 
 # Install chocolatey
@@ -24,29 +30,8 @@ Install-WinUtilChoco
 # Reload environment so we can use choco commands.
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
 
-# Install programs via choco
+Install-Apps
 
-choco install 7zip adobereader google-chrome-x64 firefox nerd-fonts-CascadiaCode
+Edit-Terminal
 
-# Set the windows terminal default font to the nerd font we downloaded.
-$JsonPath = "$env:localappdata\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-#First copy the settings.json file in case we make an ooopsie.
-Copy-Item -Path $JsonPath -Destination "$JsonPath.bak"
-$JsonFile = Get-Content $JsonPath -raw | ConvertFrom-Json
-$JsonFile.profiles.defaults.font.face = "CaskaydiaCove Nerd Font"
-$JsonFile | ConvertTo-Json -depth 32 | Set-Content -Path $JsonPath
-
-
-
-#choco install git neovim mingw make
-
-#reload env yet AGAIN so i can use git.
-#$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
-
-# Install VS Code extensions
-
-#code --install-extension ms-vscode-remote.remote-containers
-
-#code --install-extension ms-vscode-remote.remote-ssh
-
-#Install-NvimConfig
+Read-Host "Installs complete. Press Enter to continue..."

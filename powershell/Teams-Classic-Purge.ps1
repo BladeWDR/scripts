@@ -12,9 +12,12 @@ function Uninstall-TeamsClassic($TeamsPath) {
 }
 
 function Install-Winget() {
+
+    # Need to set the script to use TLS 1.2 for the web request.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     
     $URL = "https://api.github.com/repos/microsoft/winget-cli/releases/latest"
-        $URL = (Invoke-WebRequest -Uri $URL).Content | ConvertFrom-Json |
+        $URL = (Invoke-WebRequest -Uri $URL -UseBasicParsing).Content | ConvertFrom-Json |
         Select-Object -ExpandProperty "assets" |
         Where-Object "browser_download_url" -Match '.msixbundle' |
         Select-Object -ExpandProperty "browser_download_url"
