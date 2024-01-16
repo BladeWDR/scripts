@@ -12,16 +12,21 @@ function Install-Apps {
 }
 
 function Edit-Terminal {
-# Set the windows terminal default font to the nerd font we downloaded.
     $JsonPath = "$env:localappdata\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+
 # Check to see if the settings.json file exists.
-        if (Test-Path $JsonPath){
-#First copy the settings.json file in case we make an ooopsie.
-            Copy-Item -Path $JsonPath -Destination "$JsonPath.bak"
-            $JsonFile = Get-Content $JsonPath -raw | ConvertFrom-Json
-            $JsonFile.profiles.defaults.font.face = "CaskaydiaCove Nerd Font"
-            $JsonFile | ConvertTo-Json -depth 32 | Set-Content -Path $JsonPath
-        }
+    if (Test-Path $JsonPath){
+        $fontProperty = @"
+{
+            "face": "CaskaydiaCove Nerd Font",
+            "size": 12.0
+        },
+"@
+	$JsonFile = Get-Content $JsonPath -raw
+	$JsonContent = ConvertFrom-Json -InputObject $JsonFile
+	$JsonContent.profiles.defaults | Add-Member -Name 'font' -Value (ConvertFrom-Json $fontProperty) -MemberType NoteProperty
+	$JsonContent | ConvertTo-Json -Depth 32 | Set-Content $JsonPath -Force
+}
 }
 
 # Install chocolatey
