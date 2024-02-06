@@ -3,13 +3,13 @@
 ###################################################
 
 param(
-    [Parameter(Mandatory)][string]$defaultValue
+    [Parameter][string]$defaultValue
 )
 $outputFile="$env:userprofile\Downloads\delegation.csv"
 
 if([string]::IsNullOrWhiteSpace($defaultValue))
 {
-    Read-Host "You must enter an account with admin rights."; EXIT
+    Read-Host "You must enter an account with admin rights"; EXIT
 }
 try {
     Import-Module ExchangeOnlineManagement | Out-Null
