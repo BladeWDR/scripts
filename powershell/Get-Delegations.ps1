@@ -1,5 +1,7 @@
 ###################################################
 # Get-Delegations.ps1 myadminuser@domain.onmicrosoft.com
+# Gets all 365 mailboxes who have delegated access to their mailbox.
+# Includes both User and Shared mailbox types.
 ###################################################
 
 param(
