@@ -40,10 +40,18 @@ foreach ($mailbox in $mailboxes) {
 # If delegates exist, add them to the array
 if ($delegates) {
     foreach ($delegate in $delegates) {
+        $sendAs = Get-RecipientPermission -Identity $mailbox.DistinguishedName -Trustee $delegate.User | Where-Object { $_.Trustee -ne "NT_AUTHORITY\SELF"}
+        if ($null -ne $sendAs) {
+            $sendAsExists = "true"
+        }
+        else {
+            $sendAsExists = "false"
+        }
         $mailboxPermissions += [PSCustomObject]@{
             "Mailbox" = $mailbox.UserPrincipalName
                 "Delegate" = $delegate.User
                 "Access Rights" = $delegate.AccessRights
+                "SendAs" = $sendAsExists
         }
     }
 }
