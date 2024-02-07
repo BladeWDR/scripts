@@ -5,7 +5,7 @@
 ###################################################
 
 param(
-    [Parameter][string]$defaultValue
+    [Parameter()][string]$defaultValue
 )
 $outputFile="$env:userprofile\Downloads\delegation.csv"
 
