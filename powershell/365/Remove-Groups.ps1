@@ -1,43 +1,47 @@
-Import-Module ExchangeOnlineManagement
+# Remove-Groups.ps1 John Smith
+# Remove-Groups.ps1 jsmith@domain.com
 
-$users=@()
-$userCounter = 0
-$distributionLists = Get-DistributionGroup | Select-Object -ExpandProperty Name
-
-$office365Groups = Get-UnifiedGroup | Select-Object -ExpandProperty Name
-$mailboxes = @()
-
-foreach ($user in $users) {
-    $mailboxes += Get-Mailbox | Where-Object {$_.PrimarySmtpAddress -eq $user}
+param(
+[Parameter(Mandatory)][string]$name
+)
+if([string]::IsNullOrWhiteSpace($name))
+{
+    Read-Host "Enter the user's name or email address"; EXIT
 }
+
+try {
+    Import-Module ExchangeOnlineManagement
+}
+catch {
+    Write-Host "EOM module not installed, installing..."
+    Install-Module ExchangeOnlineManagement -AllowClobber | Out-Null
+    Write-Host "Installed successfully."
+}
+
+$user = Get-Mailbox -Identity $name | Select-Object -ExpandProperty PrimarySmtpAddress
+$distributionLists = Get-DistributionGroup | Select-Object -ExpandProperty Name
+$office365Groups = Get-UnifiedGroup | Select-Object -ExpandProperty Name
 
 foreach ($list in $distributionLists) {
     $distlistmembers = Get-DistributionGroupMember -Identity $list | Select-Object -ExpandProperty PrimarySmtpAddress
-    while ($userCounter -lt $mailboxes.Length){
-        if( $mailboxes[$userCounter].PrimarySmtpAddress -in $distlistmembers) {
-            Remove-DistributionGroupMember -Identity $list -Member $mailboxes[$userCounter] -Confirm:$false
-            Write-Host "The user $($mailboxes[$userCounter]) has been removed from the distribution list $list"
+    
+        if( $user -in $distlistmembers) {
+            Remove-DistributionGroupMember -Identity $list -Member $user -Confirm:$false
+            Write-Host "The user $user has been removed from the distribution list $list"
         }
-        $userCounter++
-    }
-    $userCounter = 0
 }
 
 
 foreach ($group in $office365Groups) {
     $o365groupmembers = Get-UnifiedGroupLinks -Identity $group -LinkType Members | Select-Object -ExpandProperty PrimarySmtpAddress
-    while ($userCounter -lt $mailboxes.Length){
-        if( $mailboxes[$userCounter].PrimarySmtpAddress -in $o365groupmembers) {
+        if( $user -in $o365groupmembers) {
             try {
-                Remove-UnifiedGroupLinks -Identity $group -LinkType Owners -Links $mailboxes[$userCounter] -Confirm:$false
+                Remove-UnifiedGroupLinks -Identity $group -LinkType Owners -Links $user -Confirm:$false
             }
             catch {
                 Write-Host "Error removing user as an owner of $group. It's likely that they're the only owner of the group."
             }
-            Remove-UnifiedGroupLinks -Identity $group -LinkType Members -Links $mailboxes[$userCounter] -Confirm:$false
-            Write-Host "The user $($mailboxes[$userCounter]) has been removed from the Office 365 group $group"
-        }
-        $userCounter++
+            Remove-UnifiedGroupLinks -Identity $group -LinkType Members -Links $user -Confirm:$false
+            Write-Host "The user $($user) has been removed from the Office 365 group $group"
     }
-    $userCounter = 0
 }
