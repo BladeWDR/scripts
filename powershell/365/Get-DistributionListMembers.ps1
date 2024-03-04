@@ -1,18 +1,18 @@
 # Get-DistributionListMembers.ps1
 # personal modification of a script I found here: https://github.com/12Knocksinna/Office365itpros/blob/master/ReportDLsAndManagers.PS1
 
-# try {
-#     Import-Module ExchangeOnlineManagement
-# }
-# catch {
-#     Write-Host "ExchangeOnlineManagement module not installed, installing..."
-#     Install-Module ExchangeOnlineManagement -AllowClobber | Out-Null
-#     Write-Host "Installed succesfully."
-#     Import-Module ExchangeOnlineManagement
-# }
-# finally {
-#     Connect-ExchangeOnline
-# }
+try {
+    Import-Module ExchangeOnlineManagement
+}
+catch {
+    Write-Host "ExchangeOnlineManagement module not installed, installing..."
+    Install-Module ExchangeOnlineManagement -AllowClobber | Out-Null
+    Write-Host "Installed succesfully."
+    Import-Module ExchangeOnlineManagement
+}
+finally {
+    Connect-ExchangeOnline
+}
 
 $OrgName = (Get-OrganizationConfig).Name
 $CreationDate = Get-Date -format g
