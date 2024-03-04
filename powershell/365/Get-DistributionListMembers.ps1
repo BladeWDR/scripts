@@ -11,7 +11,7 @@ catch {
     Import-Module ExchangeOnlineManagement
 }
 finally {
-    Connect-ExchangeOnline
+    Connect-ExchangeOnline | Out-Null
 }
 
 $OrgName = (Get-OrganizationConfig).Name
@@ -110,14 +110,14 @@ $htmltail = "</div><p>Report created for: " + $OrgName + "</p>" +
              "<p>Number of office 365 groups found:     " + $o365groups.Count + "</p>"+
              "<p>-----------------------------------------------------------------------------------------------------------------------------</p>"
 
-$htmlreport = $htmlhead + $htmlbody1 + "<br/>" + $htmlbody2 + $htmltail
+$htmlreport = $htmlhead + "<h2>Distribution Lists</h2>" + $htmlbody1 + "<br/>" + "<h2>Office 365 Groups</h2>" + $htmlbody2 + $htmltail
 $htmlreport | Out-File $ReportFile  -Encoding UTF8
 
 # Generate PDF file using microsoft edge's print to pdf functionality.
 Write-Host 'Generating PDF file...'
-Start-Process "msedge.exe" -ArgumentList @("--headless","--print-to-pdf=""$pdfPath""","--disable-extensions","--print-to-pdf-no-header","--disable-popup-blocking","--run-all-compositor-stages-before-draw","--disable-checker-imaging", "file:///$ReportFile")
+& "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" -ArgumentList @("--headless","--print-to-pdf=""$pdfPath""","--disable-extensions","--print-to-pdf-no-header","--disable-popup-blocking","--run-all-compositor-stages-before-draw","--disable-checker-imaging", "file:///$ReportFile") | Out-Null 
 Write-Host "Removing source HTML document..."
-Remove-Item -Path $ReportFile -Confirm $false
+Remove-Item -Path $ReportFile -Confirm:$false -Force
 Clear-Host
 Write-Host "PDF file created and saved to $pdfPath"
 
