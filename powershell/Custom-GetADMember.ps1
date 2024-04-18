@@ -1,4 +1,5 @@
 $groupname = "Employee-Share-Publisher"
+$filePath = ""
 $realmembers = @()
 
 function custom-getmembers {
@@ -22,5 +23,5 @@ function custom-getmembers {
 $members = custom-getmembers -group $groupname | Sort-Object -Unique
 
 $memberList = $members | Select-Object @{Name='Name';Expression={$_}}
-$memberList | Export-Csv -path C:\Users\sbarning\Desktop\Employee-Share-Publisher.csv -NoTypeInformation
+$memberList | Export-Csv -path $filePath -NoTypeInformation
 
