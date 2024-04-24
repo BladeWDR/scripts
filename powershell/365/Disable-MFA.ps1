@@ -20,11 +20,33 @@ catch{
     clear-host
 }
 finally{
-    Connect-MsolService -credential (Get-Credential -UserName $adminuser -Message "Enter password for $adminuser")
+    Connect-MsolService -credential $(Get-Credential -UserName $adminuser -Message "Enter password for $adminuser")
 }
 
-$user = Read-Host -Prompt "Please specify the email address of the user:"
-$displayname = (Get-MsolUser -UserPrincipalName $user).DisplayName
+$username = Read-Host -Prompt "Please specify the users full name. i.e. John Smith:"
+$user = Get-MsolUser -All | Where-Object {$_.DisplayName -eq $username}
 
-Set-MsolUser -UserPrincipalName $user -StrongAuthenticationRequirements @()
-Write-Output "MFA methods for $displayname have been cleared."
+if($user){
+
+    $displayname = $user.DisplayName
+    $email = $user.UserPrincipalName
+
+    $choice = Read-Host "You're clearing the MFA methods for $displayname `(email address $email`). Is this correct? y/n"
+
+    if($choice -eq "y"){
+        #Set-MsolUser -UserPrincipalName $user -StrongAuthenticationRequirements @()
+        Write-Output "MFA methods for $displayname have been cleared."
+    }
+    elseif($choice -eq "n"){
+        Write-Output "MFA methods for $displayname have not been altered."
+    }
+    else{
+        Write-Output "Invalid input, please enter y or n."
+    }
+}
+else{
+    Write-Host "User not found."
+}
+
+#Disconnect the session when done.
+[Microsoft.Online.Administration.Automation.ConnectMsolService]::ClearUserSessionState() | Out-Null
