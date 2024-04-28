@@ -54,7 +54,7 @@ if [ -f /usr/bin/snap ]; then
    # Need to remove all other snap packages before removing snapd.
    if [ -z $snaps ]; then
         for snap in $snaps; do
-            if[ $snap != 'snapd' ]; then
+            if [ $snap != 'snapd' ]; then
                 sudo snap remove $snap
                 echo "Removed snap package $snap"
             fi
