@@ -52,7 +52,7 @@ sudo systemctl mask systemd-networkd-wait-online.service
 if [ -f /usr/bin/snap ]; then
     snaps=$(snap list | awk 'NR>1 {print $1}')
    # Need to remove all other snap packages before removing snapd.
-   if [ -z "$snaps" ]; then
+   if [ -n "$snaps" ]; then
         for snap in $snaps; do
             if [ "$snap" != 'snapd' ]; then
                 sudo snap remove "$snap"
@@ -66,6 +66,9 @@ if [ -f /usr/bin/snap ]; then
     # Blow that garbage away.
     sudo apt purge snapd -y
 fi
+
+# clean up.
+sudo apt autoremove -y
 
 # finally update the system.
 sudo apt update && sudo apt dist-upgrade -y
