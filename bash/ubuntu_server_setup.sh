@@ -34,7 +34,7 @@ sudo apt install -y \
     logrotate \
     lsb-release \
     make \
-    nano \
+    ncdu \
     bash-completion \
     net-tools \
     sysstat \
