@@ -21,6 +21,7 @@ sudo apt update
 sudo apt install -y \
     anacron \
     apt-transport-https \
+    bat \
     bwm-ng \
     ca-certificates \
     curl \
@@ -33,14 +34,17 @@ sudo apt install -y \
     logrotate \
     lsb-release \
     make \
-    nano \
+    ncdu \
     bash-completion \
     net-tools \
     sysstat \
     software-properties-common \
     vnstat \
     vim \
-    tmux
+    tmux \
+    zsh \
+    zsh-syntax-highlighting \
+    zsh-autosuggestions
 
 # speed up boot times
 # https://askubuntu.com/a/979493
