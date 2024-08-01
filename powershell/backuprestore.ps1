@@ -2,7 +2,10 @@
 
 $folders = @("Documents", "Desktop", "Downloads", "Pictures", "Music")
 
-$backupPath = Read-Host 'Enter the path for the backup directory'
+Write-Output "Enter the path for the backup directory (e.g. D:\mybackup)"
+Write-Output "This should be on a separate drive, preferably a removable one or network drive."
+$backupPath = Read-Host 'Enter path'
+Clear-Host
 
 Write-Output "You are operating with the following directories:"
 Write-Output "`n"
@@ -16,7 +19,7 @@ Write-Output 'Backup directory:'
 $backupPath
 
 Write-Output "`n"
-Write-Host 'Do you want to do a backup (1) or a restore? (2)'
+Write-Host 'Enter 1 for a backup, or 2 for a restore.'
 $choice = Read-Host 'Enter 1 or 2' 
 
 # backup
