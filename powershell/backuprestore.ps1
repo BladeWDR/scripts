@@ -2,7 +2,7 @@
 
 $folders = @("Documents", "Desktop", "Downloads", "Pictures", "Music")
 
-Write-Output "Enter the path for the backup directory (e.g. D:\mybackup)"
+Write-Output "Enter the path for the backup directory (e.g. D:\mybackup or \\fileserver\backupshare)"
 Write-Output "This should be on a separate drive, preferably a removable one or network drive."
 $backupPath = Read-Host 'Enter path'
 Clear-Host
