@@ -25,13 +25,23 @@ $choice = Read-Host 'Enter 1 or 2'
 # backup
 if ($choice -eq "1"){
     foreach ($folder in $folders){
-        robocopy $env:USERPROFILE\$folder $backupPath\$folder /MT:16 /e /copy:dat /dcopy:dat
+        if ((Test-Path -Path "$env:USERPROFILE\$folder")){
+            robocopy $env:USERPROFILE\$folder $backupPath\$folder /MT:16 /e /copy:dat /dcopy:dat
+        }
+        else{
+            Write-Host -ForegroundColor Cyan "Path $env:USERPROFILE\$folder does not exist. Skipping."
+        }
     }
 }
 # restore
 elseif ($choice -eq "2"){
     foreach ($folder in $folders){
-        robocopy $backupPath\$folder $env:USERPROFILE\$folder /MT:16 /e /copy:dat /dcopy:dat
+        if ((Test-Path -Path "$backupPath\$folder")){
+            robocopy $backupPath\$folder $env:USERPROFILE\$folder /MT:16 /e /copy:dat /dcopy:dat
+        }
+        else{
+            Write-Host -ForegroundColor Cyan "Path $backupPath\$folder does not exist. Skipping."
+        }
     }
 }
 else{
