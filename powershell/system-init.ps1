@@ -5,12 +5,9 @@ function Install-WinUtilChoco {
 
 function Install-Apps {
 # Install programs via choco
-    choco install 7zip adobereader firefox winget -y
+    choco install 7zip firefox -y
 # Installs Open Shell without Classic Explorer.
     choco install open-shell -y --install-arguments="'/qn ADDLOCAL=StartMenu'"
-# Use winget to install Chrome since the choco version is constantly broken.
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
-    winget install google.chrome --accept-package-agreements --accept-source-agreements
 }
 
 # function Edit-Terminal {
