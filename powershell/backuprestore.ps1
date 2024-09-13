@@ -2,6 +2,15 @@
 
 $folders = @("Documents", "Desktop", "Downloads", "Pictures", "Music")
 
+Function Speak {
+    param (
+        [string]$message
+    )
+    Add-Type -AssemblyName System.Speech
+    $SpeechSynthesizer = New-Object System.Speech.Synthesis.SpeechSynthesizer
+    $SpeechSynthesizer.Speak($message)
+}
+
 Write-Output "Enter the path for the backup directory (e.g. D:\mybackup or \\fileserver\backupshare)"
 Write-Output "This should be on a separate drive, preferably a removable one or network drive."
 $backupPath = Read-Host 'Enter path'
@@ -32,6 +41,7 @@ if ($choice -eq "1"){
             Write-Host -ForegroundColor Cyan "Path $env:USERPROFILE\$folder does not exist. Skipping."
         }
     }
+    Speak "Backup Complete."
 }
 # restore
 elseif ($choice -eq "2"){
@@ -43,6 +53,7 @@ elseif ($choice -eq "2"){
             Write-Host -ForegroundColor Cyan "Path $backupPath\$folder does not exist. Skipping."
         }
     }
+    Speak "Restore Complete."
 }
 else{
     Write-Output 'Invalid entry. Only enter 1 or 2.'
