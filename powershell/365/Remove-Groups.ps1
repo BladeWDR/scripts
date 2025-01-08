@@ -46,7 +46,7 @@ foreach ($list in $distributionLists) {
     $distlistmembers = Get-DistributionGroupMember -Identity $listDN | Select-Object -ExpandProperty PrimarySmtpAddress
     
         if( $User -in $distlistmembers) {
-            Remove-DistributionGroupMember -Identity $listDN -Member $User -Confirm:$false -Whatif
+            Remove-DistributionGroupMember -Identity $listDN -Member $User -Confirm:$false
             Write-Output "The user $User has been removed from the distribution list `"$listDisplayName`""
             $userFound = $true
         }
@@ -74,14 +74,14 @@ foreach ($group in $office365Groups) {
                 if ( $User -in $groupOwners){
                     try {
                         Write-Output "Attempting to remove group ownership for `"$groupDisplayName`"..."
-                        Remove-UnifiedGroupLinks -Identity $groupName -LinkType Owners -Links $User -Confirm:$false -WhatIf
+                        Remove-UnifiedGroupLinks -Identity $groupName -LinkType Owners -Links $User -Confirm:$false
                         Write-Output "Removed ownership from `"$groupDisplayName`" successfully."
                     }
                     catch {
                         Write-Host "Error removing user as an owner of $groupName. It's likely that they're the only owner of the group."
                     }
                 }
-            Remove-UnifiedGroupLinks -Identity $groupName -LinkType Members -Links $User -Confirm:$false -WhatIf
+            Remove-UnifiedGroupLinks -Identity $groupName -LinkType Members -Links $User -Confirm:$false
                 Write-Output "The user $($User) has been removed from the Office 365 group `"$groupDisplayName`""
         }
         else{
