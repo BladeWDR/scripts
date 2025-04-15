@@ -12,6 +12,25 @@ function Install-Apps
     choco install open-shell -y --install-arguments="'/qn ADDLOCAL=StartMenu'"
 }
 
+function Disable-RestartApps
+{
+    $regPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+    $valueName = "RestartApps"
+
+    if (-not (Test-Path -Path "$regPath"))
+    {
+        New-Item -Path $regPath -Force
+    }
+
+    if ($null -eq (Get-ItemProperty -Path $regPath -Name $valueName -ErrorAction SilentlyContinue))
+    {
+        New-ItemProperty -Path $regPath -Name $valueName -PropertyType Dword -Force -Value 0
+    } else
+    {
+        Set-ItemProperty -Path $regPath -Name $valueName -Value 0
+    }
+}
+
 # Install chocolatey
 Install-WinUtilChoco
 
@@ -20,6 +39,6 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 
 Install-Apps
 
-#Edit-Terminal
+Disable-RestartApps
 
 Read-Host "Installs complete. Press Enter to continue..."
