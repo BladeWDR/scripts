@@ -65,7 +65,7 @@ $CONFIG = @"
 
 if (-not (Test-Path -Path "$TEMPDIR" -PathType Container))
 {
-  New-Item -Path "TEMPDIR" -Type Directory
+  New-Item -Path "$TEMPDIR" -Type Directory
 }
 
 
