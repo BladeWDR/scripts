@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 
+if ! grep -q "Ubuntu" /etc/os-release || ! grep -q "Debian" /etc/os-release; then
+   echo 'This script only works with Ubuntu or Debian related distros.'
+   exit 1
+fi
+
 CONFIG_FILE="/etc/sysctl.d/99-ip-forward.conf"
 
 read -p "Enter the name of the network interface: " NET_INTERFACE
-read -p "Enter your tunnel subnet: " WG_SUBNET
+read -p "Enter the IP of this Wireguard peer: " WG_IP_ADDRESS
 
-sudo apt-get update && sudo apt-get upgrade -y
+#sudo apt-get update && sudo apt-get upgrade -y
 
 if [[ -f /var/run/reboot-required ]]; then
    REBOOT_NEEDED=true
@@ -60,7 +65,7 @@ EOF
 
 sudo chmod +x /etc/networkd-dispatcher/routable.d/reload-iptables.sh
 
-cd /etc/wireguard
+(cd /etc/wireguard
 
 sudo wg-genkey | tee privatekey | wg pubkey > publickey
 
@@ -69,15 +74,16 @@ PRIV_KEY=(cat /etc/wireguard/privatekey)
 sudo cat << EOF > /etc/wireguard/wg0.conf
 
 [Interface]  
-Address = 10.200.0.1/24  
+Address = $WG_IP_ADDRESS/24  
 SaveConfig = true  
-PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE; iptables -A FORWARD -o %i -j ACCEPT  
-PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE; iptables -D FORWARD -o %i -j ACCEPT  
+PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o $NET_INTERFACE -j MASQUERADE; iptables -A FORWARD -o %i -j ACCEPT  
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o $NET_INTERFACE -j MASQUERADE; iptables -D FORWARD -o %i -j ACCEPT  
 ListenPort = 444  
 PrivateKey = $PRIV_KEY
 EOF
+)
 
 cat << EOF
 "This has done most of the setup work for you.
-Your Wireguard subnet is $WG_SUBNET. Now go create some clients."
+Now go create some clients."
 EOF
