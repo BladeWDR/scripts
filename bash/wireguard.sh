@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if ! grep -q "Ubuntu" /etc/os-release || ! grep -q "Debian" /etc/os-release; then
+if ! grep -q "Ubuntu" /etc/os-release && ! grep -q "Debian" /etc/os-release; then
    echo 'This script only works with Ubuntu or Debian related distros.'
    exit 1
 fi
@@ -17,15 +17,16 @@ if [[ -f /var/run/reboot-required ]]; then
 fi
 
 # Enabling IP forwarding
-sudo echo 1 > /proc/sys/net/ipv4/ip_forward
-sudo echo "net.ipv4.ip_forward = 1" > "$CONFIG_FILE"
+echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward > /dev/null
+echo "net.ipv4.ip_forward = 1" | sudo tee "$CONFIG_FILE" > /dev/null
 sudo sysctl -p "$CONFIG_FILE"
 
 # Install the wireguard tools
 sudo apt install wireguard -y
 
 # Configure firewall
-sudo cat << EOF > /etc/rules/iptables
+sudo mkdir -p /etc/rules
+sudo tee /etc/rules/iptables > /dev/null << EOF
 *filter
 :INPUT ACCEPT [0:0]
 :FORWARD ACCEPT [0:0]
@@ -36,7 +37,7 @@ sudo cat << EOF > /etc/rules/iptables
 # basic global accept rules - ICMP, loopback, traceroute, established all accepted
 -A INPUT -s 127.0.0.0/8 -d 127.0.0.0/8 -i lo -j ACCEPT
 -A INPUT -p icmp -j ACCEPT
--A INPUT -m conntrack --state ESTABLISHED -j ACCEPT
+-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
 # Enable our custom Wireguard port
 -A INPUT -p udp --dport 444 -j ACCEPT
@@ -56,22 +57,22 @@ sudo cat << EOF > /etc/rules/iptables
 COMMIT
 EOF
 
-sudo cat << EOF /etc/networkd-dispatcher/routable.d/reload-iptables.sh
+sudo tee /etc/networkd-dispatcher/routable.d/reload-iptables.sh > /dev/null << EOF
 #!/bin/sh
 
-iptables-restore < /etc/rules/iptables
+$(which iptables-restore) < /etc/rules/iptables
 
 EOF
 
 sudo chmod +x /etc/networkd-dispatcher/routable.d/reload-iptables.sh
 
-(cd /etc/wireguard
+sudo $(which iptables-restore) < /etc/rules/iptables
 
-sudo wg-genkey | tee privatekey | wg pubkey > publickey
+PRIVATE_KEY=$(wg genkey)
+echo "$PRIVATE_KEY" | sudo tee /etc/wireguard/privatekey > /dev/null
+echo "$PRIVATE_KEY" | wg pubkey | sudo tee /etc/wireguard/publickey > /dev/null
 
-PRIV_KEY=(cat /etc/wireguard/privatekey)
-
-sudo cat << EOF > /etc/wireguard/wg0.conf
+sudo tee /etc/wireguard/wg0.conf > /dev/null << EOF
 
 [Interface]  
 Address = $WG_IP_ADDRESS/24  
@@ -79,11 +80,14 @@ SaveConfig = true
 PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -t nat -A POSTROUTING -o $NET_INTERFACE -j MASQUERADE; iptables -A FORWARD -o %i -j ACCEPT  
 PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -t nat -D POSTROUTING -o $NET_INTERFACE -j MASQUERADE; iptables -D FORWARD -o %i -j ACCEPT  
 ListenPort = 444  
-PrivateKey = $PRIV_KEY
+PrivateKey = $PRIVATE_KEY
 EOF
-)
 
 cat << EOF
-"This has done most of the setup work for you.
-Now go create some clients."
+This has done most of the setup work for you.
+Now go create some clients.
 EOF
+
+if $REBOOT_NEEDED; then
+   echo "A reboot is required. You should reboot the system now."
+fi
