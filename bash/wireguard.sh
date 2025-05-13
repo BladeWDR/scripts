@@ -10,7 +10,7 @@ CONFIG_FILE="/etc/sysctl.d/99-ip-forward.conf"
 read -p "Enter the name of the network interface: " NET_INTERFACE
 read -p "Enter the IP of this Wireguard peer: " WG_IP_ADDRESS
 
-#sudo apt-get update && sudo apt-get upgrade -y
+sudo apt-get update && sudo apt-get upgrade -y
 
 if [[ -f /var/run/reboot-required ]]; then
    REBOOT_NEEDED=true
