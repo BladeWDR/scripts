@@ -1,3 +1,40 @@
+function Set-TaskbarAlignment() {
+    Param(
+        [Parameter(Mandatory=$True)]
+        [ValidateSet(
+            "Center",
+            "Left"
+        )]
+        $Justify
+    )
+
+    $RegPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+
+    if($Justify -eq "Left"){
+        Write-Host "Set left taskbar."
+        Set-ItemProperty -Path $RegPath -Name TaskbarAl -Value 0
+    } elseif ($Justify -eq "Center") {
+        Write-Host "Set center taskbar."
+        Set-ItemProperty -Path $RegPath -Name TaskbarAl -Value 1
+    }
+}
+
+function Disable-Widgets {
+
+    $RegPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+
+    Set-ItemProperty -Path $RegPath -Name TaskbarDa -Value 0
+    Write-Host "Disabled Widgets."
+}
+
+function Disable-TaskView {
+
+    $RegPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+
+    Set-ItemProperty -Path $RegPath -Name ShowTaskViewButton -Value 0
+    Write-Host "Disabled Task View button."
+}
+
 function Install-WinUtilChoco
 {
     Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) -ErrorAction Stop
@@ -40,5 +77,11 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 Install-Apps
 
 Disable-RestartApps
+
+Set-TaskbarAlignment -Justify "Left"
+
+Disable-Widgets
+
+Disable-TaskView
 
 Read-Host "Installs complete. Press Enter to continue..."
