@@ -19,12 +19,21 @@ function Set-TaskbarAlignment() {
     }
 }
 
-function Disable-Widgets {
+function Disable-Widgets
+{
+    try
+    {
+        & reg add "HKLM\SOFTWARE\Policies\Microsoft\Dsh" /v AllowNewsAndInterests /t REG_DWORD /d 0 /f
+        Write-Host "Disabled Widgets."
+    } catch
+    {
+        Write-Host "Error: $($_.Exception.Message)"
+    }
+}
 
-    $RegPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-
-    Set-ItemProperty -Path $RegPath -Name TaskbarDa -Value 0
-    Write-Host "Disabled Widgets."
+function Disable-Searchbox
+{
+    Set-ItemProperty -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search -Name SearchBoxTaskbarMode -Value 0 -Type DWord -Force
 }
 
 function Disable-TaskView {
@@ -81,6 +90,8 @@ Disable-RestartApps
 Set-TaskbarAlignment -Justify "Left"
 
 Disable-Widgets
+
+Disable-Searchbox
 
 Disable-TaskView
 
