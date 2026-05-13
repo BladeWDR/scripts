@@ -1,3 +1,11 @@
+$Banner = "
+  ____  _        _    ____  _______        ______  ____  
+ | __ )| |      / \  |  _ \| ____\ \      / /  _ \|  _ \ 
+ |  _ \| |     / _ \ | | | |  _|  \ \ /\ / /| | | | |_) |
+ | |_) | |___ / ___ \| |_| | |___  \ V  V / | |_| |  _ < 
+ |____/|_____/_/   \_\____/|_____|  \_/\_/  |____/|_| \_\
+"
+
 function Set-TaskbarAlignment() {
     Param(
         [Parameter(Mandatory=$True)]
@@ -46,6 +54,10 @@ function Disable-TaskView {
 
 function Install-WinUtilChoco
 {
+    Write-Host -ForegroundColor Green "###########################################################"
+    Write-Host -ForegroundColor Green "Starting Chocolatey install..."
+    Write-Host -ForegroundColor Green "###########################################################"
+
     if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)){
         Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) -ErrorAction Stop
         powershell choco feature enable -n allowGlobalConfirmation
@@ -54,10 +66,19 @@ function Install-WinUtilChoco
     else{
         Write-Host "Choco already installed - continuing without installation." -ForegroundColor Green
     }
+
+    Write-Host -ForegroundColor Green "###########################################################"
+    Write-Host -ForegroundColor Green "Chocolatey install finished."
+    Write-Host -ForegroundColor Green "###########################################################"
+
 }
 
 function Install-Apps
 {
+    Write-Host -ForegroundColor Green "###########################################################"
+    Write-Host -ForegroundColor Green "Starting Apps Installation..."
+    Write-Host -ForegroundColor Green "###########################################################"
+
     # Install programs via choco
     choco install 7zip firefox -y
     # Installs Open Shell without Classic Explorer.
@@ -85,6 +106,9 @@ function Install-Apps
         Write-Host "Open-Shell Menu not installed, exiting."
     }
 
+    Write-Host -ForegroundColor Green "###########################################################"
+    Write-Host -ForegroundColor Green "Apps Installation Completed."
+    Write-Host -ForegroundColor Green "###########################################################"
 }
 
 function Disable-RestartApps
@@ -105,6 +129,8 @@ function Disable-RestartApps
         Set-ItemProperty -Path $regPath -Name $valueName -Value 0
     }
 }
+
+Write-Host $Banner
 
 # Install chocolatey
 Install-WinUtilChoco
