@@ -56,6 +56,29 @@ function Install-Apps
     choco install 7zip firefox -y
     # Installs Open Shell without Classic Explorer.
     choco install open-shell -y --install-arguments="'/qn ADDLOCAL=StartMenu'"
+
+    $OpenShellPath = "$env:ProgramFiles\Open-Shell\StartMenu.exe"
+
+    if (Test-Path $OpenShellPath) {
+        Write-Host "Creating Scheduled Task to run Open-Shell Menu updates..."
+
+        $Action = New-ScheduledTaskAction -Execute $OpenShellPath -Argument "-upgrade -silent"
+        $Trigger = New-ScheduledTaskTrigger -AtStartup
+        $Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
+
+        Register-ScheduledTask `
+            -TaskName "Open-Shell OS upgrade check" `
+            -Action $Action `
+            -Trigger $Trigger `
+            -Principal $Principal `
+            -Force
+
+        Write-Host "Task Created."
+    }
+    else {
+        Write-Host "Open-Shell Menu not installed, exiting."
+    }
+
 }
 
 function Disable-RestartApps
