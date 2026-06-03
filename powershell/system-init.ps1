@@ -135,7 +135,13 @@ function Disable-RestartApps
     }
 }
 
+$TimeZone = "US Eastern Standard Time"
+
 Write-Host $Banner
+
+Write-Host "Setting time zone to $TimeZone"
+
+Set-TimeZone -Id "$TimeZone"
 
 # Install chocolatey
 Install-WinUtilChoco
