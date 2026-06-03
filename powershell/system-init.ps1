@@ -85,7 +85,7 @@ function Install-Apps
     Write-Host -ForegroundColor Green "###########################################################"
 
     # Install programs via choco
-    choco install 7zip firefox -y
+    choco install 7zip firefox sumatrapdf -y
     # Installs Open Shell without Classic Explorer.
     choco install open-shell -y --install-arguments="'/qn ADDLOCAL=StartMenu'"
 
