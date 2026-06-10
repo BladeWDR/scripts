@@ -8,6 +8,12 @@
 If no ProductIDs are provided, a GUI selection window will be shown.
 #>
 
+<# TO DO:
+
+- Remove the web only options that Claude added for some reason.
+- Add a text box to enter CompanyName via the GUI.
+#>
+
 param(
   [string[]]$ProductIDs,
   [string]$UpdateChannel = "Current",
