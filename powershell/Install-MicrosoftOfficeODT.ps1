@@ -25,7 +25,7 @@ param(
 [Net.ServicePointManager]::SecurityProtocol = [Enum]::ToObject([Net.SecurityProtocolType], 3072)
 
 # region vars
-$TempDir = "C:\temp"
+$TempDir = "$env:TEMP\InstallOffice"
 $ODTLinkHtmlPath = "$TempDir\ODTLink.html"
 $OD_Setup_exe = "$TempDir\setup.exe"
 $OD_exe = "$TempDir\ODTool.exe"
