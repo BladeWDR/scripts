@@ -1,4 +1,13 @@
-$Banner = "
+#Requires -RunAsAdministrator
+
+[CmdletBinding()]
+param(
+    [string]$TimeZone = "US Eastern Standard Time",
+    [ValidateSet("Left", "Center")][string]$TaskbarAlignment = "Left",
+    [switch]$Unattended
+)
+
+$Banner = @"
   ______   ______ _____ _____ __  __                             
  / ___\ \ / / ___|_   _| ____|  \/  |                            
  \___ \\ V /\___ \ | | |  _| | |\/| |                            
@@ -9,91 +18,87 @@ $Banner = "
   | || |\  || |  | |  | | / ___ \| |___ | | / /_ | || |\  | |_| |
  |___|_| \_|___| |_| |___/_/   \_\_____|___/____|___|_| \_|\____|
 
-"
+"@
 
-function Set-TaskbarAlignment() {
-    Param(
-        [Parameter(Mandatory=$True)]
-        [ValidateSet(
-            "Center",
-            "Left"
-        )]
-        $Justify
+function Set-RegistryValue {
+    param(
+        [string]$Path,
+        [string]$Name,
+        $Value,
+        [string]$PropertyType = "DWord"
     )
-
-    $RegPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-
-    if($Justify -eq "Left"){
-        Write-Host "Set left taskbar."
-        Set-ItemProperty -Path $RegPath -Name TaskbarAl -Value 0
-    } elseif ($Justify -eq "Center") {
-        Write-Host "Set center taskbar."
-        Set-ItemProperty -Path $RegPath -Name TaskbarAl -Value 1
+    if (-not (Test-Path -Path $Path)) {
+        New-Item -Path $Path -Force | Out-Null
     }
+    Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $PropertyType -Force
 }
 
-function Disable-Widgets
-{
-    try
-    {
-        & reg add "HKLM\SOFTWARE\Policies\Microsoft\Dsh" /v AllowNewsAndInterests /t REG_DWORD /d 0 /f
-        Write-Host "Disabled Widgets."
-    } catch
-    {
-        Write-Host "Error: $($_.Exception.Message)"
-    }
+function Set-TaskbarAlignment {
+    param([ValidateSet("Left", "Center")][string]$Justify)
+    $val = if ($Justify -eq "Left") { 0 } else { 1 }
+    Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarAl" -Value $val
+    Write-Host "Set taskbar alignment to $Justify." -ForegroundColor Cyan
 }
 
-function Disable-Searchbox
-{
-    Set-ItemProperty -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search -Name SearchBoxTaskbarMode -Value 0 -Type DWord -Force
+function Disable-Widgets {
+    Set-RegistryValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Dsh" -Name "AllowNewsAndInterests" -Value 0
+    Write-Host "Disabled Widgets / News & Interests." -ForegroundColor Cyan
+}
+
+function Disable-Searchbox {
+    Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search" -Name "SearchBoxTaskbarMode" -Value 0
+    Write-Host "Disabled Search Box." -ForegroundColor Cyan
 }
 
 function Disable-TaskView {
-
-    $RegPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-
-    Set-ItemProperty -Path $RegPath -Name ShowTaskViewButton -Value 0
-    Write-Host "Disabled Task View button."
+    Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowTaskViewButton" -Value 0
+    Write-Host "Disabled Task View button." -ForegroundColor Cyan
 }
 
-function Install-WinUtilChoco
-{
-    Write-Host -ForegroundColor Green "###########################################################"
-    Write-Host -ForegroundColor Green "Starting Chocolatey install..."
-    Write-Host -ForegroundColor Green "###########################################################"
-
-    if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)){
-        Set-ExecutionPolicy Bypass -Scope Process -Force; Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) -ErrorAction Stop
-        powershell choco feature enable -n allowGlobalConfirmation
-        Clear-Host
+function Disable-Win11ContextMenu {
+    $regPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+    if (-not (Test-Path $regPath)) {
+        New-Item -Path $regPath -Force | Out-Null
     }
-    else{
-        Write-Host "Choco already installed - continuing without installation." -ForegroundColor Green
-    }
-
-    Write-Host -ForegroundColor Green "###########################################################"
-    Write-Host -ForegroundColor Green "Chocolatey install finished."
-    Write-Host -ForegroundColor Green "###########################################################"
-
+    Set-ItemProperty -Path $regPath -Name "(default)" -Value "" | Out-Null
+    Write-Host "Disabled Windows 11 modern context menu (restored Classic Context Menu)." -ForegroundColor Cyan
 }
 
-function Install-Apps
-{
-    Write-Host -ForegroundColor Green "###########################################################"
-    Write-Host -ForegroundColor Green "Starting Apps Installation..."
-    Write-Host -ForegroundColor Green "###########################################################"
+function Disable-DeviceCompanionApps {
+    Set-RegistryValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata" -Name "PreventDeviceMetadataFromNetwork" -Value 1
+    Write-Host "Disabled automatic device companion app downloads." -ForegroundColor Cyan
+}
 
-    # Install programs via choco
+function Disable-RestartApps {
+    Set-RegistryValue -Path "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "RestartApps" -Value 0
+    Write-Host "Disabled Restart Apps on reboot." -ForegroundColor Cyan
+}
+
+function Install-WinUtilChoco {
+    Write-Host "Checking Package Manager..." -ForegroundColor Green
+    if (-not (Get-Command choco.exe -ErrorAction SilentlyContinue)) {
+        Write-Host "Installing Chocolatey..." -ForegroundColor Green
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        Invoke-Expression (Invoke-RestMethod -Uri 'https://community.chocolatey.org/install.ps1')
+        
+        # Reload environment Path
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        choco feature enable -n allowGlobalConfirmation
+    } else {
+        Write-Host "Chocolatey already installed." -ForegroundColor Green
+    }
+}
+
+function Install-Apps {
+    Write-Host "Starting App Installation..." -ForegroundColor Green
+
     choco install 7zip firefox sumatrapdf -y
-    # Installs Open Shell without Classic Explorer.
     choco install open-shell -y --install-arguments="'/qn ADDLOCAL=StartMenu'"
 
     $OpenShellPath = "$env:ProgramFiles\Open-Shell\StartMenu.exe"
-
     if (Test-Path $OpenShellPath) {
-        Write-Host "Creating Scheduled Task to run Open-Shell Menu updates..."
-
+        Write-Host "Configuring Open-Shell update scheduled task..." -ForegroundColor Cyan
         $Action = New-ScheduledTaskAction -Execute $OpenShellPath -Argument "-upgrade -silent"
         $Trigger = New-ScheduledTaskTrigger -AtStartup
         $Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
@@ -103,62 +108,32 @@ function Install-Apps
             -Action $Action `
             -Trigger $Trigger `
             -Principal $Principal `
-            -Force
-
-        Write-Host "Task Created."
-    }
-    else {
-        Write-Host "Open-Shell Menu not installed, exiting."
-    }
-
-    Write-Host -ForegroundColor Green "###########################################################"
-    Write-Host -ForegroundColor Green "Apps Installation Completed."
-    Write-Host -ForegroundColor Green "###########################################################"
-}
-
-function Disable-RestartApps
-{
-    $regPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-    $valueName = "RestartApps"
-
-    if (-not (Test-Path -Path "$regPath"))
-    {
-        New-Item -Path $regPath -Force
-    }
-
-    if ($null -eq (Get-ItemProperty -Path $regPath -Name $valueName -ErrorAction SilentlyContinue))
-    {
-        New-ItemProperty -Path $regPath -Name $valueName -PropertyType Dword -Force -Value 0
-    } else
-    {
-        Set-ItemProperty -Path $regPath -Name $valueName -Value 0
+            -Force | Out-Null
     }
 }
 
-$TimeZone = "US Eastern Standard Time"
+# Execution Flow
+Write-Host $Banner -ForegroundColor Yellow
 
-Write-Host $Banner
+Write-Host "Setting time zone to $TimeZone" -ForegroundColor Green
+Set-TimeZone -Id $TimeZone -ErrorAction SilentlyContinue
 
-Write-Host "Setting time zone to $TimeZone"
-
-Set-TimeZone -Id "$TimeZone"
-
-# Install chocolatey
 Install-WinUtilChoco
-
-# Reload environment so we can use choco commands.
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
-
 Install-Apps
 
+# Apply Windows Customizations
 Disable-RestartApps
-
-Set-TaskbarAlignment -Justify "Left"
-
+Set-TaskbarAlignment -Justify $TaskbarAlignment
 Disable-Widgets
-
 Disable-Searchbox
-
 Disable-TaskView
+Disable-Win11ContextMenu
+Disable-DeviceCompanionApps
 
-Read-Host "Installs complete. Press Enter to continue..."
+# Restart Explorer to apply Taskbar/UI/Context menu registry changes immediately
+Write-Host "Restarting Explorer to apply UI tweaks..." -ForegroundColor Green
+Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+
+if (-not $Unattended) {
+    Read-Host "Installs complete. Press Enter to continue..."
+}
