@@ -1,3 +1,29 @@
+<#
+.SYNOPSIS
+    Automates Windows system initialization, package installations, and UI tweaks.
+
+.DESCRIPTION
+    Configures system time zone, installs essential software via Chocolatey, applies clean 
+    Windows UI customizations (Classic Context Menu, Taskbar alignment, disabling telemetry/widgets), 
+    and writes detailed log outputs to temporary storage.
+
+.PARAMETER TimeZone
+    Specifies the system time zone ID. Defaults to "US Eastern Standard Time".
+
+.PARAMETER TaskbarAlignment
+    Sets Windows 11 Taskbar icon alignment. Options: "Left" or "Center". Defaults to "Left".
+
+.PARAMETER Unattended
+    Runs non-interactively without asking for user prompt upon completion.
+
+.PARAMETER LogPath
+    Path to the log output file. Defaults to "$env:TEMP\system-init.log" which is cleaned 
+    automatically by Windows Storage Sense.
+
+.EXAMPLE
+    .\system-init.ps1 -TaskbarAlignment Left -Unattended
+#>
+
 #Requires -RunAsAdministrator
 
 [CmdletBinding()]
