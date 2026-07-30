@@ -1,190 +1,272 @@
+<#
+.SYNOPSIS
+    Automated Backup & Restore Utility with Driver Management.
+.DESCRIPTION
+    Backs up or restores standard user profile folders using Robocopy 
+    and handles Windows driver export/import via PNPUtil.
+.PARAMETER DryRun
+    Simulate operations without making changes.
+.PARAMETER Mode
+    Specify operation mode ('Backup' or 'Restore'). Skips initial menu if provided.
+.PARAMETER BackupPath
+    Specify target backup directory. Skips folder browser if provided.
+.PARAMETER NoSpeech
+    Disable Text-to-Speech audio notifications.
+#>
+[CmdletBinding()]
 param(
-    [switch]$DryRun
+    [switch]$DryRun,
+    [ValidateSet("Backup", "Restore")]
+    [string]$Mode,
+    [string]$BackupPath,
+    [switch]$NoSpeech
 )
 
-$Robocopy_Flags = @("/MT:16", "/e", "/copy:dat", "/dcopy:dat")
-
-if($DryRun)
-{
-    $Robocopy_Flags += "/L"
-    Write-Host "DRY RUN MODE - No files will be copied" -ForegroundColor Yellow
+# -----------------------------------------------------------------------------
+# Global Config & Flags
+# -----------------------------------------------------------------------------
+$RobocopyFlags = @("/MT:16", "/E", "/COPY:DAT", "/DCOPY:DAT", "/R:2", "/W:2")
+if ($DryRun) {
+    $RobocopyFlags += "/L"
 }
 
-$folders = @("Documents", "Desktop", "Downloads", "Pictures", "Music")
-$LOG_DATESTAMP="$((Get-Date).ToString('yyyyMMddHHmmss'))"
-$logPath = "$env:TEMP\$LOG_DATESTAMP.log"
-Start-Transcript -Path "$logPath"
+$SystemFolders = @("Documents", "Desktop", "Downloads", "Pictures", "Music")
+$LogTimestamp  = (Get-Date).ToString("yyyyMMdd_HHmmss")
+$LogPath       = Join-Path $env:TEMP "$LogTimestamp.log"
 
-# Load assemblies once at the beginning
-Add-Type -AssemblyName System.Speech
-Add-Type -AssemblyName System.Windows.Forms
-
-Function Speak
-{
-    param (
-        [string]$message
-    )
-    if(-not $DryRun)
-    {
-        $SpeechSynthesizer = New-Object System.Speech.Synthesis.SpeechSynthesizer
-        $SpeechSynthesizer.Speak($message)
-    } else
-    {
-        Write-Host "[DRY RUN] Would speak: $message" -ForegroundColor Yellow
+# -----------------------------------------------------------------------------
+# Visual & Helper Functions
+# -----------------------------------------------------------------------------
+function Write-HeaderBanner {
+    Clear-Host
+    Write-Host "======================================================================" -ForegroundColor Cyan
+    Write-Host "                USER DATA BACKUP & RESTORE UTILITY                   " -ForegroundColor Yellow
+    Write-Host "======================================================================" -ForegroundColor Cyan
+    if ($DryRun) {
+        Write-Host " [?] DRY-RUN MODE ACTIVE - No changes will be made to disk" -ForegroundColor DarkYellow
+        Write-Host "----------------------------------------------------------------------" -ForegroundColor Cyan
     }
+    Write-Host ""
 }
 
-function FolderPicker
-{
+function Write-Badge {
     param(
-        [string]$Destination
+        [string]$Type,
+        [string]$Message
     )
-    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-    $folderBrowser.Description = "$Destination"
-    $folderBrowser.rootfolder = "MyComputer"
-    
-    $selectedPath = $null  # Initialize variable
-    if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK)
-    {
-        $selectedPath = $folderBrowser.SelectedPath
+    switch ($Type) {
+        "INFO"    { Write-Host "[*] " -ForegroundColor Cyan -NoNewline; Write-Host $Message }
+        "SUCCESS" { Write-Host "[+] " -ForegroundColor Green -NoNewline; Write-Host $Message }
+        "WARN"    { Write-Host "[!] " -ForegroundColor Yellow -NoNewline; Write-Host $Message }
+        "ERROR"   { Write-Host "[x] " -ForegroundColor Red -NoNewline; Write-Host $Message }
+        "DRYRUN"  { Write-Host "[?] " -ForegroundColor DarkYellow -NoNewline; Write-Host $Message }
     }
-    return $selectedPath
 }
 
-$backupPath = FolderPicker -Destination "Select backup destination."
-if([string]::IsNullorWhitespace($backupPath))
-{
-    Write-Output "Backup path cannot be empty."
-    exit 1
+function Test-IsAdmin {
+    $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-Clear-Host
-Write-Output "You are operating with the following directories:"
-Write-Output "`n"
-Write-Output "System folders:"
-foreach ($folder in $folders)
-{
-    Write-Output "$env:USERPROFILE\$folder"
-}
-Write-Output "`n"
-Write-Output 'Backup directory:'
-$backupPath
-Write-Output "`n"
-
-if($DryRun)
-{
-    Write-Host "DRY RUN MODE ENABLED - No actual operations will be performed" -ForegroundColor Yellow
-    Write-Output "`n"
-}
-
-Write-Host 'Enter 1 for a backup, or 2 for a restore.'
-$choice = Read-Host 'Enter 1 or 2' 
-
-# backup
-if ($choice -eq "1")
-{
-    foreach ($folder in $folders)
-    {
-        if ((Test-Path -Path "$env:USERPROFILE\$folder"))
-        {
-            Write-Host "Backing up $folder..." -ForegroundColor Green
-            $result = robocopy "$env:USERPROFILE\$folder" "$backupPath\$folder" $Robocopy_Flags
-            if ($LASTEXITCODE -ge 8)
-            {
-                Write-Warning "Robocopy encountered errors backing up $folder (Exit code: $LASTEXITCODE)"
-            }
-        } else
-        {
-            Write-Host -ForegroundColor Cyan "Path $env:USERPROFILE\$folder does not exist. Skipping."
-        }
-    }
+function Speak-Notification {
+    param ([string]$Message)
+    if ($NoSpeech) { return }
     
-    # Reset choice to empty string so I can reuse it.
-    $choice = ""
-    $choice = Read-Host "Would you like to export device drivers? (Y/N)"
-    if(($choice -eq "y") -or ($choice -eq "Y"))
-    {
-        $driverPath = FolderPicker -Destination "Select driver export location"
-        if([string]::IsNullorWhitespace($driverPath))
-        {
-            Write-Output "Driver export path cannot be empty."
-            exit 1
+    if (-not $DryRun) {
+        try {
+            Add-Type -AssemblyName System.Speech -ErrorAction Stop
+            $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
+            $synth.Speak($Message)
+        } catch {
+            # Ignore speech synthesizer errors gracefully
         }
+    } else {
+        Write-Badge "DRYRUN" "Speech Triggered: '$Message'"
+    }
+}
+
+function Get-FolderInteractive {
+    param ([string]$Description)
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+    
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = $Description
+    $dialog.ShowNewFolderButton = $true
+    
+    # Force dialog to top layer
+    $topForm = New-Object System.Windows.Forms.Form
+    $topForm.TopMost = $true
+    
+    if ($dialog.ShowDialog($topForm) -eq [System.Windows.Forms.DialogResult]::OK) {
+        return $dialog.SelectedPath
+    }
+    return $null
+}
+
+# -----------------------------------------------------------------------------
+# Main Script Execution
+# -----------------------------------------------------------------------------
+Start-Transcript -Path $LogPath -Quiet
+
+try {
+    Write-HeaderBanner
+
+    # Check for Admin Privileges (required for PNPUtil)
+    $IsAdmin = Test-IsAdmin
+    if (-not $IsAdmin) {
+        Write-Badge "WARN" "Script is NOT running as Administrator. Driver import/export will fail if selected."
+        Write-Host ""
+    }
+
+    # Prompt for Target Path if not supplied via parameter
+    while ([string]::IsNullOrWhiteSpace($BackupPath)) {
+        Write-Badge "INFO" "Select the root directory for Backup/Restore operations..."
+        $BackupPath = Get-FolderInteractive -Description "Select Backup/Restore Root Directory"
         
-        if($DryRun)
-        {
-            Write-Host "[DRY RUN] Would export drivers to: $driverPath" -ForegroundColor Yellow
-        } else
-        {
-            Write-Host "Exporting drivers..." -ForegroundColor Green
-            try
-            {
-                $result = pnputil.exe /export-driver * "$driverPath"
-                if ($LASTEXITCODE -ne 0)
-                {
-                    Write-Warning "Driver export may have encountered issues (Exit code: $LASTEXITCODE)"
-                }
-            } catch
-            {
-                Write-Error "Failed to export drivers: $_"
+        if ([string]::IsNullOrWhiteSpace($BackupPath)) {
+            Write-Badge "WARN" "No directory selected."
+            $choice = Read-Host "Would you like to try again? (Y/N)"
+            if ($choice -notmatch "^[Yy]") {
+                Write-Badge "ERROR" "Operation cancelled by user."
+                exit 0
             }
         }
     }
-    Speak "Backup Complete."
-}
-# restore
-elseif ($choice -eq "2")
-{
-    foreach ($folder in $folders)
-    {
-        if ((Test-Path -Path "$backupPath\$folder"))
-        {
-            Write-Host "Restoring $folder..." -ForegroundColor Green
-            $result = robocopy "$backupPath\$folder" "$env:USERPROFILE\$folder" $Robocopy_Flags
-            if ($LASTEXITCODE -ge 8)
-            {
-                Write-Warning "Robocopy encountered errors restoring $folder (Exit code: $LASTEXITCODE)"
-            }
-        } else
-        {
-            Write-Host -ForegroundColor Cyan "Path $backupPath\$folder does not exist. Skipping."
-        }
-    }
-    
-    $choice = ""
-    $choice = Read-Host "Would you like to import device drivers? (Y/N)"
-    if(($choice -eq "y") -or ($choice -eq "Y"))
-    {
-        $driverPath = FolderPicker -Destination "Select driver import location"
-        if([string]::IsNullorWhitespace($driverPath))
-        {
-            Write-Output "Driver import path cannot be empty."
-            exit 1
-        }
-        
-        if($DryRun)
-        {
-            Write-Host "[DRY RUN] Would import drivers from: $driverPath" -ForegroundColor Yellow
-        } else
-        {
-            Write-Host "Importing drivers..." -ForegroundColor Green
-            try
-            {
-                $result = pnputil.exe /add-driver "$driverPath\*.inf" /subdirs /install
-                if ($LASTEXITCODE -ne 0)
-                {
-                    Write-Warning "Driver import may have encountered issues (Exit code: $LASTEXITCODE)"
-                }
-            } catch
-            {
-                Write-Error "Failed to import drivers: $_"
-            }
-        }
-    }
-    Speak "Restore Complete."
-} else
-{
-    Write-Output 'Invalid entry. Only enter 1 or 2.'
-}
 
-Stop-Transcript
+    # Confirmation Summary Card
+    Write-HeaderBanner
+    Write-Host " [CONFIG SUMMARY]" -ForegroundColor Yellow
+    Write-Host "  Profile Source : $env:USERPROFILE"
+    Write-Host "  Target Location: $BackupPath"
+    Write-Host "  Log Output     : $LogPath"
+    Write-Host "  Folders        : $($SystemFolders -join ', ')"
+    Write-Host "----------------------------------------------------------------------" -ForegroundColor Cyan
+    Write-Host ""
+
+    # Menu Selection if Mode parameter was omitted
+    if ([string]::IsNullOrWhiteSpace($Mode)) {
+        Write-Host " Select Operation:" -ForegroundColor Yellow
+        Write-Host "   [1] Backup User Data (Profile -> Backup Directory)"
+        Write-Host "   [2] Restore User Data (Backup Directory -> Profile)"
+        Write-Host "   [Q] Quit"
+        Write-Host ""
+        
+        $selection = Read-Host " Enter choice (1/2/Q)"
+        switch ($selection) {
+            "1" { $Mode = "Backup" }
+            "2" { $Mode = "Restore" }
+            default {
+                Write-Badge "INFO" "Exiting without making changes."
+                exit 0
+            }
+        }
+    }
+
+    Write-Host ""
+    Write-Badge "INFO" "Starting $Mode process..."
+
+    # Backup Mode
+    if ($Mode -eq "Backup") {
+        foreach ($folder in $SystemFolders) {
+            $src = Join-Path $env:USERPROFILE $folder
+            $dst = Join-Path $BackupPath $folder
+
+            if (Test-Path -Path $src) {
+                Write-Badge "INFO" "Backing up $folder..."
+                $null = robocopy "$src" "$dst" $RobocopyFlags
+                
+                if ($LASTEXITCODE -ge 8) {
+                    Write-Badge "ERROR" "Robocopy failed for $folder (Exit Code: $LASTEXITCODE)"
+                } else {
+                    Write-Badge "SUCCESS" "Backed up $folder successfully."
+                }
+            } else {
+                Write-Badge "WARN" "Source directory '$src' does not exist. Skipping."
+            }
+        }
+
+        # Driver Export Option
+        $driverChoice = Read-Host "`nWould you like to export device drivers? (Y/N)"
+        if ($driverChoice -match "^[Yy]") {
+            if (-not $IsAdmin) {
+                Write-Badge "ERROR" "Exporting drivers requires Administrator privileges."
+            } else {
+                $driverPath = Get-FolderInteractive -Description "Select driver export location"
+                if ([string]::IsNullOrWhiteSpace($driverPath)) {
+                    $driverPath = Join-Path $BackupPath "Drivers"
+                }
+                if (-not (Test-Path $driverPath)) { New-Item -ItemType Directory -Path $driverPath | Out-Null }
+
+                Write-Badge "INFO" "Exporting drivers to $driverPath..."
+                if ($DryRun) {
+                    Write-Badge "DRYRUN" "Would run: pnputil.exe /export-driver * '$driverPath'"
+                } else {
+                    $result = pnputil.exe /export-driver * "$driverPath"
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Badge "SUCCESS" "Driver export complete."
+                    } else {
+                        Write-Badge "WARN" "Driver export completed with warnings/errors (Exit Code: $LASTEXITCODE)."
+                    }
+                }
+            }
+        }
+
+        Speak-Notification "Backup Complete."
+        Write-Badge "SUCCESS" "Backup procedure finished."
+    }
+    # Restore Mode
+    elseif ($Mode -eq "Restore") {
+        foreach ($folder in $SystemFolders) {
+            $src = Join-Path $BackupPath $folder
+            $dst = Join-Path $env:USERPROFILE $folder
+
+            if (Test-Path -Path $src) {
+                Write-Badge "INFO" "Restoring $folder..."
+                $null = robocopy "$src" "$dst" $RobocopyFlags
+                
+                if ($LASTEXITCODE -ge 8) {
+                    Write-Badge "ERROR" "Robocopy failed restoring $folder (Exit Code: $LASTEXITCODE)"
+                } else {
+                    Write-Badge "SUCCESS" "Restored $folder successfully."
+                }
+            } else {
+                Write-Badge "WARN" "Backup directory '$src' not found. Skipping."
+            }
+        }
+
+        # Driver Import Option
+        $driverChoice = Read-Host "`nWould you like to import device drivers? (Y/N)"
+        if ($driverChoice -match "^[Yy]") {
+            if (-not $IsAdmin) {
+                Write-Badge "ERROR" "Importing drivers requires Administrator privileges."
+            } else {
+                $driverPath = Get-FolderInteractive -Description "Select driver import location"
+                if ([string]::IsNullOrWhiteSpace($driverPath)) {
+                    $driverPath = Join-Path $BackupPath "Drivers"
+                }
+                if (Test-Path $driverPath) {
+                    Write-Badge "INFO" "Importing drivers from $driverPath..."
+                    if ($DryRun) {
+                        Write-Badge "DRYRUN" "Would run: pnputil.exe /add-driver '$driverPath\*.inf' /subdirs /install"
+                    } else {
+                        $result = pnputil.exe /add-driver "$driverPath\*.inf" /subdirs /install
+                        if ($LASTEXITCODE -eq 0) {
+                            Write-Badge "SUCCESS" "Driver import complete."
+                        } else {
+                            Write-Badge "WARN" "Driver import completed with warnings/errors (Exit Code: $LASTEXITCODE)."
+                        }
+                    }
+                } else {
+                    Write-Badge "WARN" "Driver backup folder '$driverPath' not found."
+                }
+            }
+        }
+
+        Speak-Notification "Restore Complete."
+        Write-Badge "SUCCESS" "Restore procedure finished."
+    }
+
+} finally {
+    Stop-Transcript -Quiet
+}
