@@ -404,17 +404,19 @@ $summaryColor = if ($script:ErrorCount -eq 0)
 { "Yellow" 
 }
 
+$logDisplay = if ($LogPath.Length -gt 37) { "..." + $LogPath.Substring($LogPath.Length - 34) } else { $LogPath }
+
 Write-Host @"
 
 ┌────────────────────────────────────────────────────────────┐
 │                    EXECUTION SUMMARY                       │
-├───────────────────────────────┬────────────────────────────┤
-│ Status                        │ $($statusSummary.PadRight(26)) │
-│ Succeeded Tasks               │ $($script:SuccessCount.ToString().PadRight(26)) │
-│ Failed Tasks                  │ $($script:ErrorCount.ToString().PadRight(26)) │
-│ Total Duration                │ $($elapsed.PadRight(26)) │
-│ Log Location                  │ Temp ($env:TEMP)           │
-└───────────────────────────────┴────────────────────────────┘
+├──────────────────────┬─────────────────────────────────────┤
+│ Status               │ $($statusSummary.PadRight(37)) │
+│ Succeeded Tasks      │ $($script:SuccessCount.ToString().PadRight(37)) │
+│ Failed Tasks         │ $($script:ErrorCount.ToString().PadRight(37)) │
+│ Total Duration       │ $($elapsed.PadRight(37)) │
+│ Log Location         │ $($logDisplay.PadRight(37)) │
+└──────────────────────┴─────────────────────────────────────┘
 "@ -ForegroundColor $summaryColor
 
 Write-Log "System initialization completed in $elapsed with $script:ErrorCount error(s)." -Level INFO
