@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Automates Windows system initialization, package installations, and UI tweaks.
 
@@ -404,18 +404,18 @@ $summaryColor = if ($script:ErrorCount -eq 0)
 { "Yellow" 
 }
 
-$logDisplay = if ($LogPath.Length -gt 37) { "..." + $LogPath.Substring($LogPath.Length - 34) } else { $LogPath }
+$logDisplay = if ($LogPath.Length -gt 35) { "..." + $LogPath.Substring($LogPath.Length - 32) } else { $LogPath }
 
 Write-Host @"
 
 ┌────────────────────────────────────────────────────────────┐
 │                    EXECUTION SUMMARY                       │
 ├──────────────────────┬─────────────────────────────────────┤
-│ Status               │ $($statusSummary.PadRight(37)) │
-│ Succeeded Tasks      │ $($script:SuccessCount.ToString().PadRight(37)) │
-│ Failed Tasks         │ $($script:ErrorCount.ToString().PadRight(37)) │
-│ Total Duration       │ $($elapsed.PadRight(37)) │
-│ Log Location         │ $($logDisplay.PadRight(37)) │
+│ Status               │ $($statusSummary.PadRight(35)) │
+│ Succeeded Tasks      │ $($script:SuccessCount.ToString().PadRight(35)) │
+│ Failed Tasks         │ $($script:ErrorCount.ToString().PadRight(35)) │
+│ Total Duration       │ $($elapsed.PadRight(35)) │
+│ Log Location         │ $($logDisplay.PadRight(35)) │
 └──────────────────────┴─────────────────────────────────────┘
 "@ -ForegroundColor $summaryColor
 
