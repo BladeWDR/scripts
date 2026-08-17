@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Automates Windows system initialization, package installations, and UI tweaks.
 
