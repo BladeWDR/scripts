@@ -52,10 +52,10 @@ $Banner = @"
 function Write-Header
 {
   param([string]$Title)
-  $line = "─" * 62
-  Write-Host "`n┌$line┐" -ForegroundColor DarkGray
-  Write-Host "│  $($Title.PadRight(58))  │" -ForegroundColor Yellow
-  Write-Host "└$line┘" -ForegroundColor DarkGray
+  $line = "$([char]0x2500)" * 62
+  Write-Host "`n$([char]0x250C)$line$([char]0x2510)" -ForegroundColor DarkGray
+  Write-Host "$([char]0x2502)  $($Title.PadRight(58))  $([char]0x2502)" -ForegroundColor Yellow
+  Write-Host "$([char]0x2514)$line$([char]0x2518)" -ForegroundColor DarkGray
 }
 
 # Writes log entries to both console (with modern status icons) and log file ($env:TEMP)
@@ -83,19 +83,19 @@ function Write-Log
   $symbol, $color = switch ($Level)
   {
     "SUCCESS"
-    { "[✔]", "Green";  $script:SuccessCount++ 
+    { "[$([char]0x2714)]", "Green";  $script:SuccessCount++ 
     }
     "WARN"
     { "[!]", "Yellow" 
     }
     "ERROR"
-    { "[✖]", "Red";    $script:ErrorCount++ 
+    { "[$([char]0x2716)]", "Red";    $script:ErrorCount++ 
     }
     "STEP"
-    { "[➜]", "Cyan" 
+    { "[$([char]0x279C)]", "Cyan" 
     }
     default
-    { "[ℹ]", "DarkCyan" 
+    { "[$([char]0x2139)]", "DarkCyan" 
     }
   }
 
@@ -404,19 +404,27 @@ $summaryColor = if ($script:ErrorCount -eq 0)
 { "Yellow" 
 }
 
-$logDisplay = if ($LogPath.Length -gt 35) { "..." + $LogPath.Substring($LogPath.Length - 32) } else { $LogPath }
+$logDisplay = if ($LogPath.Length -gt 35)
+{ "..." + $LogPath.Substring($LogPath.Length - 32) 
+} else
+{ $LogPath 
+}
 
-Write-Host @"
+$boxH60 = "$([char]0x2500)" * 60
+$boxH22 = "$([char]0x2500)" * 22
+$boxH37 = "$([char]0x2500)" * 37
+$tl = [char]0x250C; $tr = [char]0x2510; $v = [char]0x2502
+$ml = [char]0x251C; $mc = [char]0x253C; $mr = [char]0x2524
+$bl = [char]0x2514; $bc = [char]0x2534; $br = [char]0x2518
 
-┌────────────────────────────────────────────────────────────┐
-│                    EXECUTION SUMMARY                       │
-├──────────────────────┬─────────────────────────────────────┤
-│ Status               │ $($statusSummary.PadRight(35)) │
-│ Succeeded Tasks      │ $($script:SuccessCount.ToString().PadRight(35)) │
-│ Failed Tasks         │ $($script:ErrorCount.ToString().PadRight(35)) │
-│ Total Duration       │ $($elapsed.PadRight(35)) │
-│ Log Location         │ $($logDisplay.PadRight(35)) │
-└──────────────────────┴─────────────────────────────────────┘
-"@ -ForegroundColor $summaryColor
+Write-Host "`n$tl$boxH60$tr" -ForegroundColor $summaryColor
+Write-Host "$v                    EXECUTION SUMMARY                       $v" -ForegroundColor $summaryColor
+Write-Host "$ml$boxH22$mc$boxH37$mr" -ForegroundColor $summaryColor
+Write-Host "$v Status               $v $($statusSummary.PadRight(35)) $v" -ForegroundColor $summaryColor
+Write-Host "$v Succeeded Tasks      $v $($script:SuccessCount.ToString().PadRight(35)) $v" -ForegroundColor $summaryColor
+Write-Host "$v Failed Tasks         $v $($script:ErrorCount.ToString().PadRight(35)) $v" -ForegroundColor $summaryColor
+Write-Host "$v Total Duration       $v $($elapsed.PadRight(35)) $v" -ForegroundColor $summaryColor
+Write-Host "$v Log Location         $v $($logDisplay.PadRight(35)) $v" -ForegroundColor $summaryColor
+Write-Host "$bl$boxH22$bc$boxH37$br`n" -ForegroundColor $summaryColor
 
 Write-Log "System initialization completed in $elapsed with $script:ErrorCount error(s)." -Level INFO
