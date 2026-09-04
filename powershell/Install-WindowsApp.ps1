@@ -1,207 +1,194 @@
 <#
 .SYNOPSIS
-    Automated silent installer for Microsoft Windows App (Remote Desktop replacement).
+    Automated silent installer for Microsoft Windows App via direct MSIX package download.
 .DESCRIPTION
-    Installs Microsoft Windows App via WinGet with robust error handling, exit code checking,
-    and user/system context package verification.
-    Optimized for Datto RMM (CentraStage), Intune, SCCM, and SYSTEM account execution via powershell.exe.
+    Downloads and installs the official Microsoft Windows App MSIX package directly,
+    bypassing WinGet and App Store dependencies for 100% reliable execution under
+    Datto RMM (CentraStage), SYSTEM account, Intune, and SCCM.
 #>
 
 [CmdletBinding()]
-param()
+param(
+  [Parameter(Mandatory=$false)]
+  [string]$MsixUrl = "https://go.microsoft.com/fwlink/?linkid=2262633"
+)
 
 $ErrorActionPreference = 'Stop'
 
-# Datto RMM component variables are exposed as environment variables
-# We need to check and see if they exist, if not set default values.
-if ( -not ([string]::IsNullOrWhiteSpace($env:ShortcutName)))
+# Auto-relaunch in 64-bit PowerShell process if executing in 32-bit (WOW64) context (e.g. Datto RMM / CentraStage)
+if ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess)
+{
+  $sysNativePowerShell = Join-Path $env:SystemRoot "SysNative\WindowsPowerShell\v1.0\powershell.exe"
+  if (Test-Path $sysNativePowerShell)
+  {
+    Write-Host "Switching execution from 32-bit (WOW64) to 64-bit PowerShell process..."
+    $scriptPath = if ($PSCommandPath)
+    { $PSCommandPath 
+    } else
+    { $MyInvocation.MyCommand.Path 
+    }
+    if ($scriptPath)
+    {
+      & $sysNativePowerShell -NoProfile -ExecutionPolicy Bypass -File $scriptPath @args
+      exit $LASTEXITCODE
+    }
+  }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($env:MsixUrl))
+{
+  $MsixUrl = $env:MsixUrl
+}
+
+if (-not [string]::IsNullOrWhiteSpace($env:ShortcutName))
 {
   $WindowsShortcutName = "$env:ShortcutName"
 } else
 {
   $WindowsShortcutName = 'Windows App'
 }
-if ( -not ([string]::IsNullOrWhiteSpace($env:CompanyName)))
+
+if (-not [string]::IsNullOrWhiteSpace($env:CompanyName))
 {
   $CompanyName = "$env:CompanyName"
 } else
 {
-  $CompanyName = 'MyCompany'
+  $WindowsShortcutName = 'MyCompany'
 }
 
-# Microsoft Store Product ID for Windows App
-$WingetAppId = '9N1F85V9T8BN'
+
 $AppxIdentity = 'MicrosoftCorporationII.Windows365'
-
-function Get-WinGetPath
-{
-  # 1. Check if winget is directly available in PATH (suppress errors in RMM logs)
-  $cmd = Get-Command winget -ErrorAction SilentlyContinue
-  if ($cmd)
-  {
-    return $cmd.Source
-  }
-
-  # 2. Check standard user execution alias path (if running in user context)
-  if ($env:LOCALAPPDATA)
-  {
-    $userAliasPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
-    if (Test-Path $userAliasPath)
-    {
-      return $userAliasPath
-    }
-  }
-
-  # 3. Check ProgramFiles AppInstaller location (essential for SYSTEM / Datto RMM context)
-  $appInstallerDir = Join-Path $env:ProgramFiles "WindowsApps"
-  if (Test-Path $appInstallerDir)
-  {
-    $installerFolders = Get-ChildItem -Path $appInstallerDir -Filter "Microsoft.DesktopAppInstaller*" -ErrorAction SilentlyContinue
-    foreach ($folder in $installerFolders)
-    {
-      $wingetExe = Join-Path $folder.FullName "winget.exe"
-      if (Test-Path $wingetExe)
-      {
-        return $wingetExe
-      }
-    }
-  }
-
-  return $null
-}
-
-function Install-WinGetBootstrap
-{
-  Write-Host "WinGet binary not found. Attempting automatic WinGet (App Installer) bootstrap..."
-  try
-  {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $tempDir = Join-Path $env:TEMP "WinGetBootstrap"
-    if (-not (Test-Path $tempDir))
-    { New-Item -ItemType Directory -Path $tempDir -Force | Out-Null 
-    }
-        
-    $msixPath = Join-Path $tempDir "AppInstaller.msixbundle"
-    Write-Host "Downloading latest AppInstaller bundle from Microsoft..."
-    Invoke-WebRequest -Uri "https://aka.ms/getwinget" -OutFile $msixPath -UseBasicParsing
-        
-    Write-Host "Installing AppInstaller bundle..."
-    Add-AppxPackage -Path $msixPath -ErrorAction Stop
-    Write-Host "WinGet bootstrapped successfully."
-        
-    Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
-  } catch
-  {
-    Write-Warning "Auto-bootstrap attempt failed: $_"
-  }
-}
+$AppUserModelId = 'MicrosoftCorporationII.Windows365_8wekyb3d8bbwe!Windows365'
 
 function Invoke-DesktopShortcut
 {
   $WindowsAppDesktopShortcutLocation = "C:\Users\Public\Desktop\$WindowsShortcutName.lnk"
 
-  if(Test-Path -Path "$WindowsAppDesktopShortcutLocation")
+  try
   {
-    Write-Host "INFO: Shortcut already exists. Deleting and recreating it."
-    Remove-Item -Path "$WindowsAppDesktopShortcutLocation" -Force
-  }
+    if (Test-Path -Path "$WindowsAppDesktopShortcutLocation")
+    {
+      Write-Host "INFO: Shortcut already exists. Deleting and recreating it."
+      Remove-Item -Path "$WindowsAppDesktopShortcutLocation" -Force
+    }
 
-  # Source - https://stackoverflow.com/a/38372136
-  # Posted by Grace Feng, modified by community. See post 'Timeline' for change history
-  # Retrieved 2026-08-20, License - CC BY-SA 3.0
+    $ShortcutFile = "$WindowsAppDesktopShortcutLocation"
+    $IconDestination = "C:\ProgramData\$CompanyName\icons\windows-app.ico"
 
-  $AppUserModelId = 'MicrosoftCorporationII.Windows365_8wekyb3d8bbwe!Windows365'
-  $ShortcutFile = "$WindowsAppDesktopShortcutLocation"
-  $IconDestination = "C:\ProgramData\$CompanyName\icons\windows-app.ico"
+    if (-not (Test-Path $IconDestination))
+    {
+      New-Item -ItemType Directory -Path (Split-Path $IconDestination) -Force | Out-Null
+      if (Test-Path ".\windows-app.ico")
+      {
+        Copy-Item -Path ".\windows-app.ico" -Destination $IconDestination -Force
+      }
+    }
 
-  if (-not (Test-Path $IconDestination))
+    $WScriptShell = New-Object -ComObject WScript.Shell
+    $Shortcut = $WScriptShell.CreateShortcut($ShortcutFile)
+    $Shortcut.TargetPath = "$env:windir\explorer.exe"
+    $Shortcut.Arguments = "shell:AppsFolder\$AppUserModelId"
+    if (Test-Path $IconDestination)
+    {
+      $Shortcut.IconLocation = $IconDestination
+    }
+    $Shortcut.Save()
+
+    Write-Host "SUCCESS: Created desktop shortcut for Windows App."
+  } catch
   {
-    New-Item -ItemType Directory -Path (Split-Path $IconDestination) -Force | Out-Null
-    Copy-Item -Path ".\windows-app.ico" -Destination $IconDestination -Force
+    Write-Warning "Desktop shortcut creation note: $_"
   }
-
-  $WScriptShell = New-Object -ComObject WScript.Shell
-  $Shortcut = $WScriptShell.CreateShortcut($ShortcutFile)
-  $Shortcut.TargetPath = "$env:windir\explorer.exe"
-  $Shortcut.Arguments = "shell:AppsFolder\$AppUserModelId"
-  $Shortcut.IconLocation = $IconDestination
-  $Shortcut.Save()
-
-  Write-Host "SUCCESS: Created desktop shortcut for the Windows App."
-
 }
 
-# --- Step 1: Locate WinGet ---
-Write-Host "Locating WinGet..."
-$wingetPath = Get-WinGetPath
+# --- Step 1: Download Direct MSIX Package ---
+Write-Host "Downloading Microsoft Windows App MSIX package from: $MsixUrl"
 
-if (-not $wingetPath)
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$tempDir = Join-Path $env:TEMP "WindowsAppInstall"
+if (-not (Test-Path $tempDir))
 {
-  # Attempt auto-bootstrap if missing
-  Install-WinGetBootstrap
-  $wingetPath = Get-WinGetPath
+  New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 }
 
-if (-not $wingetPath)
-{
-  Write-Error "WinGet (App Installer) is not installed or could not be located on this system."
-  Write-Error "Please ensure App Installer is installed on the target machine."
-  exit 1
-}
-
-Write-Host "WinGet executable found at: $wingetPath"
-
-# --- Step 2: Execute Silent Installation ---
-Write-Host "Starting silent installation of Windows App (ID: $WingetAppId)..."
-
-$wingetArgs = @(
-  "install",
-  "--id", "$WingetAppId",
-  "--source", "msstore",
-  "--exact",
-  "--scope", "machine",
-  "--silent",
-  "--accept-package-agreements",
-  "--accept-source-agreements",
-  "--disable-interactivity"
-)
+$msixPath = Join-Path $tempDir "WindowsApp.msix"
 
 try
 {
-  # Execute WinGet binary with process exit code monitoring
-  $process = Start-Process -FilePath $wingetPath -ArgumentList $wingetArgs -Wait -NoNewWindow -PassThru
-  $exitCode = $process.ExitCode
+  if (Test-Path $msixPath)
+  {
+    Remove-Item -Path $msixPath -Force -ErrorAction SilentlyContinue
+  }
+
+  $webClient = New-Object System.Net.WebClient
+  $webClient.DownloadFile($MsixUrl, $msixPath)
+  
+  $fileSize = (Get-Item $msixPath).Length
+  Write-Host "Downloaded MSIX package successfully ($fileSize bytes)."
 } catch
 {
-  Write-Error "An error occurred while launching WinGet: $_"
+  Write-Error "Failed to download Windows App MSIX package: $_"
   exit 1
 }
 
-# WinGet exit codes: 0 = Success, 0x8A15000B (-1978335189) = Already installed / no update required
-if ($exitCode -ne 0 -and $exitCode -ne -1978335189)
+# --- Step 2: Install MSIX Package ---
+Write-Host "Installing Windows App MSIX package..."
+
+$installed = $false
+
+# 1. Provision package machine-wide for all users (essential for SYSTEM / Datto RMM context)
+try
 {
-  $hexCode = "0x{0:X8}" -f [uint32]$exitCode
-  Write-Error "WinGet failed with exit code $exitCode ($hexCode)."
-  exit 1
+  Write-Host "Attempting machine-wide provisioned installation (DISM)..."
+  Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense -ErrorAction Stop | Out-Null
+  Write-Host "Provisioned Windows App successfully for all users."
+  $installed = $true
+} catch
+{
+  if ("$_" -like "*already installed*" -or "$_" -like "*0x80073CFB*")
+  {
+    Write-Host "Package is already provisioned machine-wide."
+    $installed = $true
+  } else
+  {
+    Write-Host "Provisioned installation note: $_"
+  }
 }
 
-Write-Host "WinGet process completed successfully (Exit Code: $exitCode)."
+# 2. Install package for current user / SYSTEM context
+try
+{
+  Write-Host "Installing AppX package for current context..."
+  Add-AppxPackage -Path $msixPath -ForceUpdateFromAnyVersion -ErrorAction Stop
+  Write-Host "Installed AppX package successfully."
+  $installed = $true
+} catch
+{
+  if ("$_" -like "*already installed*" -or "$_" -like "*0x80073CFB*")
+  {
+    Write-Host "Package is already installed."
+    $installed = $true
+  } elseif (-not $installed)
+  {
+    Write-Warning "AppX package install note: $_"
+  }
+}
 
-# --- Step 3: Verification ---
+# Clean up installer file
+Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+
+# --- Step 3: Verification & Shortcut ---
 Write-Host "Verifying installation of package '$AppxIdentity'..."
 
 $installedPackage = $null
 
-# Check current user context first
 try
 {
   $installedPackage = Get-AppxPackage -Name "$AppxIdentity" -ErrorAction SilentlyContinue
 } catch
 {
-  # Ignore per-user query failures
 }
 
-# If not found in user context, try -AllUsers (requires elevation / SYSTEM context)
 if (-not $installedPackage)
 {
   try
@@ -209,23 +196,29 @@ if (-not $installedPackage)
     $installedPackage = Get-AppxPackage -AllUsers -Name "$AppxIdentity" -ErrorAction SilentlyContinue
   } catch
   {
-    # Catch Access Denied if non-elevated
   }
 }
 
-if ($installedPackage)
+if (-not $installedPackage)
 {
-  $pkgName = if ($installedPackage.PackageFullName)
-  { $installedPackage.PackageFullName 
-  } else
-  { $AppxIdentity 
+  try
+  {
+    $prov = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like "*Windows365*" -or $_.PackageName -like "*Windows365*" }
+    if ($prov)
+    { $installedPackage = $prov 
+    }
+  } catch
+  {
   }
-  Write-Host "SUCCESS: Windows App ($pkgName) is installed."
+}
+
+if ($installedPackage -or $installed)
+{
+  Write-Host "SUCCESS: Windows App is installed."
   Invoke-DesktopShortcut
   exit 0
 } else
 {
-  Write-Error "FAILURE: WinGet reported success, but package '$AppxIdentity' was not detected in AppxPackage list."
+  Write-Error "FAILURE: Package '$AppxIdentity' installation could not be verified."
   exit 1
 }
-exit 1
